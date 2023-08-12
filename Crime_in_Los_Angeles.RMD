@@ -1,0 +1,307 @@
+---
+title: "Crime in Los Angeles"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+
+## Setup
+
+### Load packages
+```{r load-packages, echo = FALSE, message = FALSE}
+library(ggplot2)
+library(dplyr)
+library(statsr)
+library(tidyr)
+library(rmarkdown)
+library(readr)
+library(lubridate)
+library(RColorBrewer)
+library(ggrepel)
+library(data.table)
+```
+
+### Load data
+```{r load-data, echo = FALSE, message = FALSE}
+# Set the Working Directory
+setwd("Datasets")
+
+# Import the full dataset as a dataframe
+los_angeles_crime_data <- read_csv("Crime_Data_from_2020_to_Present.csv")
+
+# Identify the character columns and convert them to factors if applicable.
+char_cols <- sapply(los_angeles_crime_data, is.character)
+los_angeles_crime_data[char_cols] <- lapply(los_angeles_crime_data[char_cols], as.factor)
+```
+
+* * *
+
+## Part 1: Data 
+##### Plan Phase of the PACE Framework
+
+### How are the observations in the sample collected?
+The data is obtained from the Los Angeles Police Department and provides valuable information about crime patterns and trends within the city. 
+It is not possible to establish causal relationships as these are just observations and no controlled experiment was conducted.
+
+Original data: https://data.lacity.org/Public-Safety/Crime-Data-from-2020-to-Present/2nrs-mtv8
+
+* * *
+
+## Part 2: Research question 
+##### Plan Phase of the PACE Framework
+
+### Project Scope (Specific if variables of interest are known, broad otherwise)
+The purpose of this analysis is to extract insights from crime data in Los Angeles and explore the following questions:
+- What is the actual average age of crime victims in Los Angeles, and how does it compare to the sample mean?
+- Which areas of Los Angeles are considered the safest and most unsafe?
+- Does a person's descent have any impact on their likelihood of being a crime victim?
+
+* * *
+
+## Part 3: Exploratory data analysis 
+##### Analyze Phase of the PACE Framework
+
+### Investigate the Dataset
+
+#### Potential Areas to Investigate (if areas of investigation aren't already known)
+- What is the true average age of crime victims in Los Angeles?
+- What area of Los Angeles has the highest crime rate and at what time of day? (What area is most dangerous and least dangerous areas?)
+- What role does sex play in crime victimization? (Are males or females more prone to crime victimization?)
+- Does Ethnicity (Victim_Descent) play a role?
+
+```{r eda}
+# Initial investigation to identify trends and variables of interest
+summary(los_angeles_crime_data)
+head(los_angeles_crime_data)
+tail(los_angeles_crime_data)
+
+summary(los_angeles_crime_data$'Vict Descent')
+summary(los_angeles_crime_data$'Vict Age')
+summary(los_angeles_crime_data$'Vict Sex')
+summary(los_angeles_crime_data$'AREA NAME')
+summary(los_angeles_crime_data$'TIME OCC')
+
+## Plot variables of interest
+
+### Vict Descent
+barplot(table(los_angeles_crime_data$'Vict Descent')) 
+boxplot(table(los_angeles_crime_data$'Vict Descent'))
+dotchart(table(los_angeles_crime_data$'Vict Descent'))
+hist(table(los_angeles_crime_data$'Vict Descent'))
+
+### Vict Age
+hist(table(los_angeles_crime_data$'Vict Age'))
+boxplot(los_angeles_crime_data$'Vict Age')
+scatter.smooth(los_angeles_crime_data$'Vict Age')
+qqnorm(los_angeles_crime_data$'Vict Age')
+qqline(los_angeles_crime_data$'Vict Age')
+
+### Vict Sex
+barplot(table(los_angeles_crime_data$'Vict Sex')) 
+boxplot(table(los_angeles_crime_data$'Vict Sex'))
+hist(table(los_angeles_crime_data$'Vict Sex'))
+dotchart(table(los_angeles_crime_data$'Vict Sex'))
+
+### AREA NAME
+barplot(table(los_angeles_crime_data$'AREA NAME'), las = 2)
+boxplot(table(los_angeles_crime_data$'AREA NAME'))
+hist(table(los_angeles_crime_data$'AREA NAME'))
+dotchart(table(los_angeles_crime_data$'AREA NAME'))
+
+### TIME OCC
+hist(table(los_angeles_crime_data$'TIME OCC'))
+boxplot(los_angeles_crime_data$'TIME OCC')
+scatter.smooth(los_angeles_crime_data$'TIME OCC')
+qqnorm(los_angeles_crime_data$'TIME OCC')
+qqline(los_angeles_crime_data$'TIME OCC')
+
+```
+
+### Data Manipulation and Cleaning
+```{r format_clean}
+# Keep columns for analysis that were deemed relevant for the analysis
+los_angeles_crime_data_trimmed <- los_angeles_crime_data %>%
+  select(c("Vict Age","Vict Sex","Vict Descent","AREA NAME","TIME OCC"))
+
+# Rename column headers for readability
+colnames(los_angeles_crime_data_trimmed) <- c("Victim_Age", "Victim_Sex", "Victim_Descent", "Area_Name","Time_Occurred")
+
+# Rename values in the Victim_Sex and Victim_Descent columns for readability.
+los_angeles_crime_data_trimmed <- los_angeles_crime_data_trimmed %>%
+  mutate(Victim_Sex = recode(Victim_Sex, "F" = "Female", "M" = "Male", "X" = "Unknown"),
+         Victim_Descent = recode(Victim_Descent, "A" = "Other Asian", "B" = "Black", "C" = "Chinese", "D" = "Cambodian", "F" = "Filipino", "G" = "Guamanian", "H" = "Hispanic/Latin/Mexican", "I" = "American Indian/Alaskan Native",
+  "J" = "Japanese", "K" = "Korean", "L" = "Laotian", "O" = "Other", "P" = "Pacific Islander", "S" = "Samoan", "U" = "Hawaiian", "V" = "Vietnamese", "W" = "White", "X" = "Unknown", "Z" = "Asian Indian"))
+
+# Check for Missing Values
+sum(is.na(los_angeles_crime_data_trimmed$Victim_Age))
+sum(is.na(los_angeles_crime_data_trimmed$Victim_Sex))
+sum(is.na(los_angeles_crime_data_trimmed$Victim_Descent))
+sum(is.na(los_angeles_crime_data_trimmed$Area_Name))
+sum(is.na(los_angeles_crime_data_trimmed$Time_Occurred))
+
+# Omit rows with missing values
+los_angeles_crime_data_trimmed <- na.omit(los_angeles_crime_data_trimmed)
+
+# Filter out ages < 0 in the Victim Age column, only keep Male and Female in the Victim Sex column and remove Unknown from the Victim Descent Column.
+los_angeles_crime_data_trimmed <- los_angeles_crime_data_trimmed %>%
+  filter(Victim_Age > 0, Victim_Sex %in% c('Female','Male'), Victim_Descent != "Unknown")
+
+if (FALSE) { # Skip this code
+## Handle missing values through imputation
+# Replace missing values in the Victim_Sex and Victim_Descent columns with the mode value.
+mode <- names(which.max(table(los_angeles_crime_data_trimmed$Victim_Sex)))
+los_angeles_crime_data_trimmed$Victim_Sex[is.na(los_angeles_crime_data_trimmed$Victim_Sex)] <- mode
+mode <- names(which.max(table(los_angeles_crime_data_trimmed$Victim_Descent)))
+los_angeles_crime_data_trimmed$Victim_Descent[is.na(los_angeles_crime_data_trimmed$Victim_Descent)] <- mode
+
+# Replace 0's in the Victim_Age column with the mean age.
+mean_vict_age <- mean(los_angeles_crime_data_trimmed$Victim_Age[los_angeles_crime_data_trimmed$Victim_Age != 0], na.rm = TRUE)
+mean_vict_age <- round(mean_vict_age, digits = 0)
+los_angeles_crime_data_trimmed$Victim_Age[los_angeles_crime_data_trimmed$Victim_Age == 0] <- mean_vict_age
+}
+
+# Convert the 24-hour values in the Time Occurred column to 12-hour.
+los_angeles_crime_data_trimmed$Time_Occurred <- sprintf("%04d", as.integer(los_angeles_crime_data_trimmed$Time_Occurred))
+los_angeles_crime_data_trimmed$Time_Occurred <- format(strptime(los_angeles_crime_data_trimmed$Time_Occurred, "%H%M"), "%I:%M %p")
+los_angeles_crime_data_trimmed$Time_Occurred <- as.POSIXct(los_angeles_crime_data_trimmed$Time_Occurred, format = "%I:%M %p")
+
+# View the data after cleaning
+summary(los_angeles_crime_data_trimmed)
+colnames(los_angeles_crime_data_trimmed)
+los_angeles_crime_data_trimmed
+```
+
+### Analysis and Visualizations of Variables
+
+#### When do most crimes occur?
+According to this plot, there is a significant increase in crime at noon, while the 
+occurrence of crimes is much lower at 4:00 AM. Between 4:00 PM and 7:00 PM, the 
+rate of crime remains relatively constant.
+```{r var_vis_one}
+los_angeles_crime_data_trimmed %>%
+  mutate(hourly_summary = format(Time_Occurred, format = "%H:00:00")) %>%
+  group_by(hourly_summary) %>%
+  summarize(count = n())
+
+ggplot(los_angeles_crime_data_trimmed, aes(x = Time_Occurred)) +
+  geom_line(stat = "bin", binwidth = 3600, color = "steelblue") +
+  scale_x_datetime(date_labels = "%I:%M %p", date_breaks = "3 hours") +
+  labs(x = "Time Occurred", y = "Count", title = "Crime in Los Angeles by Time of Day") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5),
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        axis.line = element_line(size = 0.5, color = "black"))
+
+ggsave("Crime in Los Angeles by Time of Day.jpeg", width=6, height=8)
+```
+
+#### Geographical Region (Area_Name) vs Time of Day (Time_Occurred) and Sex (Victim_Sex)
+Based on the data depicted in this plot, it can be inferred that the 77th Street and 
+Central locations have a higher incidence of crime compared to other areas, which could 
+make them less safe. It is worth noting that the occurrence of these crimes appears to 
+be fairly consistent across all locations.
+```{r var_vis_two}
+
+ggplot(los_angeles_crime_data_trimmed, aes(x = Time_Occurred, fill = Victim_Sex)) +
+  geom_histogram(binwidth = 60*60, color = "black", position = "stack") +
+  facet_wrap(~Area_Name, ncol = 2) +
+  scale_x_datetime(date_labels = "%I:%M %p", date_breaks = "3 hours") +
+  labs(x = "Time Occurred", y = "Count", title = "Crime Distribution by Time and Gender by Area") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5),
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        legend.position = "top",
+        legend.title = element_blank()) +
+  scale_fill_manual(values = c("#1f77b4", "#ff7f0e"), labels = c("Male", "Female"))
+
+ggsave("Crime Distribution by Time and Gender by Area.jpeg", width=6, height=8)
+```
+
+#### Victimization by Sex (Victim_Sex) and Geographical Region (Area_Name)
+Based on this chart, it appears that both males and females in every area of Los Angeles 
+are at similar risk of becoming victims of crime. However, the data suggests that females 
+may be slightly more vulnerable. Certain regions, such as 77th Street and Central, demonstrate 
+a higher incidence of crime compared to others.
+```{r var_vis_three}
+ggplot(los_angeles_crime_data_trimmed, aes(x = Area_Name, fill = Victim_Sex)) +
+  geom_bar(position = "stack", color = "white") +
+  labs(x = "Area Name", y = "Count", title = "Crime Distribution by Area and Sex") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5),
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        legend.position = "top",
+        legend.title = element_blank()) +
+  scale_fill_manual(values = c("#1f77b4", "#ff7f0e"), labels = c("Male", "Female")) +
+  guides(fill = guide_legend(reverse = TRUE))
+
+ggsave("Crime Distribution by Area and Sex.jpeg", width=6, height=8)
+```
+
+### Conditions
+#### Test Type
+
+```{r check_conditions}
+
+
+```
+
+* * *
+
+## Part 4: Modeling/Inference 
+##### Construct Phase of the PACE Framework
+H0 (nothing going on):
+
+HA (something going on):
+
+```{r modeling_inference}
+# Create a contingency table of the data
+contingency_table <- table(gun_crime_data_trimmed$intent, gun_crime_data_trimmed$education)
+
+# Run a Chi-Square Independence Test on the table.
+chi_square_result <- chisq.test(contingency_table)
+
+# Extract the test statistics
+chi_square <- chi_square_result$statistic
+df <- chi_square_result$parameter
+
+# Set the desired confidence level
+confidence_level <- 0.95
+
+# Calculate the critical value
+critical_value <- qchisq(1 - (1 - confidence_level) / 2, df)
+
+# Calculate the margin of error
+margin_of_error <- sqrt(chi_square / sum(chi_square_result$observed)) * critical_value
+
+# Calculate the lower and upper bounds of the confidence interval
+lower_bound <- chi_square / (1 - margin_of_error)
+upper_bound <- chi_square / (1 + margin_of_error)
+```
+
+
+* * *
+
+## Part 5: Prediction/Conclusion
+
+
+```{r predictions_conclusion}
+# Print the confidence interval
+cat("Confidence Interval:", lower_bound, "-", upper_bound, "\n")
+
+# Print the Chi Square Test Result
+print(chi_square_result)
+```
+
+### What Story does the Data Tell?
+##### Execute Phase of the PACE Framework
