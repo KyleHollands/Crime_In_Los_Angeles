@@ -222,7 +222,7 @@ ggplot(los_angeles_crime_data_trimmed, aes(x = Time_Occurred, fill = Victim_Sex)
         legend.title = element_blank()) +
   scale_fill_manual(values = c("#1f77b4", "#ff7f0e"), labels = c("Male", "Female"))
 
-ggsave("Crime in Los Angeles by Time, Gender and Area.jpeg", width=6, height=8)
+ggsave("Crime in Los Angeles by Time, Gender and Area.jpeg", width=6, height=14)
 ```
 
 #### Victimization by Sex (Victim_Sex) and Geographical Region (Area_Name)
