@@ -211,7 +211,7 @@ ggplot(los_angeles_crime_data_trimmed, aes(x = Time_Occurred, fill = Victim_Sex)
   geom_histogram(binwidth = 60*60, color = "black", position = "stack") +
   facet_wrap(~Area_Name, ncol = 2) +
   scale_x_datetime(date_labels = "%I:%M %p", date_breaks = "3 hours") +
-  labs(x = "Time Occurred", y = "Count", title = "Crime Distribution by Time and Gender by Area") +
+  labs(x = "Time Occurred", y = "Count", title = "Crime in Los Angeles by Time, Gender and Area") +
   theme_minimal() +
   theme(plot.title = element_text(hjust = 0.5),
         axis.text.x = element_text(angle = 45, hjust = 1),
@@ -222,7 +222,7 @@ ggplot(los_angeles_crime_data_trimmed, aes(x = Time_Occurred, fill = Victim_Sex)
         legend.title = element_blank()) +
   scale_fill_manual(values = c("#1f77b4", "#ff7f0e"), labels = c("Male", "Female"))
 
-ggsave("Crime Distribution by Time and Gender by Area.jpeg", width=6, height=8)
+ggsave("Crime in Los Angeles by Time, Gender and Area.jpeg", width=6, height=8)
 ```
 
 #### Victimization by Sex (Victim_Sex) and Geographical Region (Area_Name)
