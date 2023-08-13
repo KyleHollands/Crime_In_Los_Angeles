@@ -65,7 +65,7 @@ The purpose of this analysis is to extract insights from crime data in Los Angel
 
 ### Investigate the Dataset
 
-#### Potential Areas to Investigate (if areas of investigation aren't already known)
+#### Potential areas to Investigate (if areas of investigation aren't already known)
 - What is the true average age of crime victims in Los Angeles?
 - What area of Los Angeles has the highest crime rate and at what time of day? (What area is most dangerous and least dangerous areas?)
 - What role does sex play in crime victimization? (Are males or females more prone to crime victimization?)
@@ -183,21 +183,61 @@ rate of crime remains relatively constant.
 los_angeles_crime_data_trimmed %>%
   mutate(hourly_summary = format(Time_Occurred, format = "%H:00:00")) %>%
   group_by(hourly_summary) %>%
-  summarize(count = n())
+  summarize(count = n()) %>%
+  top_n(10, wt = count)
 
 ggplot(los_angeles_crime_data_trimmed, aes(x = Time_Occurred)) +
-  geom_line(stat = "bin", binwidth = 3600, color = "steelblue") +
+  geom_histogram(binwidth = 60*60, color = "#1f78b4", fill = "#a6cee3", alpha = 0.7) +
   scale_x_datetime(date_labels = "%I:%M %p", date_breaks = "3 hours") +
-  labs(x = "Time Occurred", y = "Count", title = "Crime in Los Angeles by Time of Day") +
+  labs(x = "Time of Day", y = "Count", title = "Crime in Los Angeles by Time of Day") +
   theme_minimal() +
-  theme(plot.title = element_text(hjust = 0.5),
-        axis.text.x = element_text(angle = 45, hjust = 1),
+  theme(plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+        axis.title = element_text(size = 12, face = "bold"),
+        axis.text.x = element_text(angle = 45, hjust = 1, size = 10, color = "black"),
+        axis.text.y = element_text(size = 10, color = "black"),
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
         panel.border = element_blank(),
-        axis.line = element_line(size = 0.5, color = "black"))
+        axis.line = element_line(size = 0.5, color = "black")) +
+  annotate("text", x = as.POSIXct("12:00:00", format = "%H:%M:%S"),
+           y = max(geom_histogram(binwidth = 60*60, color = "#1f78b4", fill = "#a6cee3", alpha = 0.7)$counts),
+           label = "Noon",
+           color = "#e31a1c",
+           size = 4,
+           vjust = -0.5)
 
 ggsave("Crime in Los Angeles by Time of Day.jpeg", width=6, height=8)
+```
+
+#### Which age group is most commonly associated with criminal activities?
+Based on the analysis of data and plot, ages 28, 29, 30, and 31 are frequently associated with higher crime rates in Los Angeles.
+```{r var_vis_two}
+los_angeles_crime_data_trimmed %>%
+  group_by(Victim_Age) %>%
+  summarize(count = n()) %>%
+  top_n(10, wt = count) %>%
+  arrange(desc(count))
+
+ggplot(los_angeles_crime_data_trimmed, aes(x = Victim_Age)) +
+  geom_histogram(binwidth = 5, color = "#1f78b4", fill = "#a6cee3", alpha = 0.7) +
+  labs(title = "Distribution of Victim Ages in Los Angeles",
+       x = "Age",
+       y = "Count") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+        axis.title = element_text(size = 12, face = "bold"),
+        axis.text = element_text(size = 10),
+        legend.position = "none",
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  annotate("text", x = mean(los_angeles_crime_data_trimmed$Victim_Age),
+           y = max(geom_histogram(binwidth = 5, color = "#1f78b4", fill = "#a6cee3", alpha = 0.7)$counts),
+           label = "Mean Age",
+           color = "#e31a1c",
+           size = 4,
+           vjust = -0.5)
+
+ggsave("Distribution of Victim Ages in los Angeles.jpeg", width=6, height=8)
 ```
 
 #### Geographical Region (Area_Name) vs Time of Day (Time_Occurred) and Sex (Victim_Sex)
@@ -206,6 +246,17 @@ Central locations have a higher incidence of crime compared to other areas, whic
 make them less safe. It is worth noting that the occurrence of these crimes appears to 
 be fairly consistent across all locations.
 ```{r var_vis_two}
+los_angeles_crime_data_trimmed %>%
+  mutate(hourly_summary = format(Time_Occurred, format = "%I:%M %p")) %>%
+  group_by(Area_Name, Victim_Sex, hourly_summary) %>%
+  summarize(count = n()) %>%
+  spread(Victim_Sex, count, fill = 0) %>%
+  arrange(Area_Name, desc(`Male` + `Female`)) %>%
+  group_by(Area_Name) %>%
+  top_n(10, wt = `Male` + `Female`) %>%
+  ungroup() %>%
+  arrange(desc(`Male` + `Female`)) %>%
+  head(10)
 
 ggplot(los_angeles_crime_data_trimmed, aes(x = Time_Occurred, fill = Victim_Sex)) +
   geom_histogram(binwidth = 60*60, color = "black", position = "stack") +
@@ -231,6 +282,12 @@ are at similar risk of becoming victims of crime. However, the data suggests tha
 may be slightly more vulnerable. Certain regions, such as 77th Street and Central, demonstrate 
 a higher incidence of crime compared to others.
 ```{r var_vis_three}
+los_angeles_crime_data_trimmed %>%
+  group_by(Area_Name, Victim_Sex) %>%
+  summarize(count = n()) %>%
+  pivot_wider(names_from = Victim_Sex, values_from = count, values_fill = 0) %>%
+  arrange(desc(`Male` + `Female`))
+
 ggplot(los_angeles_crime_data_trimmed, aes(x = Area_Name, fill = Victim_Sex)) +
   geom_bar(position = "stack", color = "white") +
   labs(x = "Area Name", y = "Count", title = "Crime Distribution by Area and Sex") +
